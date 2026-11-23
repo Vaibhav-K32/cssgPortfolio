@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import exampleRouter from './routes/example.js';
+import opportunitiesRouter from './routes/opportunities.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,6 +23,7 @@ app.get('/health', (req, res) => {
 
 // Routes
 app.use('/api/example', exampleRouter);
+app.use('/api/opportunities', opportunitiesRouter);             
 
 // 404 for anything else
 app.use((req, res) => {
