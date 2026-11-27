@@ -3,12 +3,12 @@ import express from 'express';
 import cors from 'cors';
 import exampleRouter from './routes/example.js';
 import opportunitiesRouter from './routes/opportunities.js';
+import meRouter from './routes/me.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // CORS: comma-separated list of allowed frontend origins
-// e.g. CORS_ORIGIN=http://localhost:5173,https://my-app.vercel.app
 const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
   .split(',')
   .map((origin) => origin.trim());
@@ -23,7 +23,8 @@ app.get('/health', (req, res) => {
 
 // Routes
 app.use('/api/example', exampleRouter);
-app.use('/api/opportunities', opportunitiesRouter);             
+app.use('/api/opportunities', opportunitiesRouter);
+app.use('/api/me', meRouter);
 
 // 404 for anything else
 app.use((req, res) => {
