@@ -1,60 +1,97 @@
-import { useEffect, useState } from 'react'
-import { getExamples, createExample, type Example } from './api'
-import './App.css'
+import { useEffect, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
+import { supabase } from './supabase';
+import { getMe } from './api';
+import type { Profile } from './api';
+import AuthForm from './pages/AuthForm';
+import Browse from './pages/Browse';
+import Detail from './pages/Detail';
+import Dashboard from './pages/Dashboard';
+import CreateOpportunity from './pages/CreateOpportunity';
 
-function App() {
-  const [examples, setExamples] = useState<Example[]>([])
-  const [title, setTitle] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+// Which "page" is showing. Simple state instead of a router library.
+export type View =
+  | { name: 'browse' }
+  | { name: 'detail'; id: number }
+  | { name: 'login' }
+  | { name: 'dashboard' }
+  | { name: 'create' };
 
+export default function App() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [view, setView] = useState<View>({ name: 'browse' });
+
+  // Keep track of whether someone is logged in
   useEffect(() => {
-    getExamples()
-      .then(setExamples)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false))
-  }, [])
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!title.trim()) return
-    try {
-      const created = await createExample(title)
-      setExamples((prev) => [created, ...prev])
-      setTitle('')
-      setError(null)
-    } catch (err) {
-      setError((err as Error).message)
+  // Load the logged-in user's profile (name + role) from our backend
+  const userId = session?.user.id;
+  useEffect(() => {
+    if (!userId) {
+      setProfile(null);
+      return;
     }
+    getMe().then(setProfile).catch(() => setProfile(null));
+  }, [userId]);
+
+  function go(next: View) {
+    setView(next);
+    window.scrollTo(0, 0);
+  }
+
+  async function logOut() {
+    await supabase.auth.signOut();
+    go({ name: 'browse' });
   }
 
   return (
-    <main className="app">
-      <h1>Example Resource</h1>
+    <div>
+      <header className="navbar">
+        <button className="brand" onClick={() => go({ name: 'browse' })}>VolunteerConnect</button>
+        <nav>
+          <button className="link" onClick={() => go({ name: 'browse' })}>Opportunities</button>
+          {session ? (
+            <>
+              <button className="link" onClick={() => go({ name: 'dashboard' })}>My Dashboard</button>
+              {profile?.role === 'organizer' && (
+                <button className="link" onClick={() => go({ name: 'create' })}>+ New</button>
+              )}
+              {profile && <span className="who">{profile.full_name} ({profile.role})</span>}
+              <button className="link" onClick={logOut}>Log out</button>
+            </>
+          ) : (
+            <button className="primary" onClick={() => go({ name: 'login' })}>Log in</button>
+          )}
+        </nav>
+      </header>
 
-      <form onSubmit={handleSubmit} className="example-form">
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="New example title"
-        />
-        <button type="submit">Add</button>
-      </form>
+      <main className="container">
+        {view.name === 'browse' && <Browse onOpen={(id) => go({ name: 'detail', id })} />}
 
-      {error && <p className="error">{error}</p>}
-      {loading ? (
-        <p>Loading...</p>
-      ) : examples.length === 0 ? (
-        <p>No examples yet. Add one above!</p>
-      ) : (
-        <ul className="example-list">
-          {examples.map((ex) => (
-            <li key={ex.id}>{ex.title}</li>
+        {view.name === 'detail' && (
+          <Detail id={view.id} loggedIn={!!session} profile={profile} go={go} />
+        )}
+
+        {view.name === 'login' &&
+          (session ? <p>You're logged in.</p> : <AuthForm onDone={() => go({ name: 'browse' })} />)}
+
+        {view.name === 'dashboard' &&
+          (session ? <Dashboard profile={profile} go={go} /> : <AuthForm onDone={() => go({ name: 'dashboard' })} />)}
+
+        {view.name === 'create' &&
+          (profile?.role === 'organizer' ? (
+            <CreateOpportunity go={go} />
+          ) : (
+            <p className="error">Only organizers can create opportunities.</p>
           ))}
-        </ul>
-      )}
-    </main>
-  )
+      </main>
+    </div>
+  );
 }
-
-export default App
