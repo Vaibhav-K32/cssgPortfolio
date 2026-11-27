@@ -1,161 +1,102 @@
-# Full-Stack Boilerplate
+# VolunteerConnect
 
-React + Vite frontend (Vercel), Express backend (Render), and a Supabase database.
+A full-stack web app that connects students with local volunteer opportunities. Volunteers browse, register for, and cancel events. Organizers post opportunities and see who signed up.
 
-```
-backend/    Express API: /health, /api/example
-frontend/   React app, which calls the API through src/api.ts
-```
+Built as the final project for **CS + Social Good @ UNC Chapel Hill**.
 
-How the pieces talk to each other:
+**Live site:** https://cssg-portfolio.vercel.app
+**API:** `https://cssg-portfolio-api.onrender.com` (health check: `/health`)
 
-```
-Browser (React on Vercel)  →  Express API (Render)  →  Supabase (Postgres)
-```
+## Features
 
-The frontend never talks to Supabase directly. It only calls your backend.
+**Volunteers**
+- Sign up and log in
+- Browse upcoming opportunities, search by title, filter by category
+- View details and spots remaining
+- Register and cancel (no duplicates, can't exceed capacity)
+- Dashboard of upcoming and past registrations
 
----
+**Organizers**
+- Organizer accounts with their own permissions
+- Create opportunities (date, time, location, category, capacity)
+- Delete their own opportunities
+- See the list of registered volunteers for their events
 
-## 1. Supabase setup
+## Tech stack
 
-1. Create a project at [supabase.com](https://supabase.com).
-2. Open **SQL Editor**, paste in `backend/schema.sql`, and click **Run**.
-3. Go to **Project Settings → API Keys**. Supabase shows several values:
-
-| Key | What it's for | Where it goes |
+| Layer | Technology | Hosted on |
 |---|---|---|
-| **Project URL** | Address of your database | Backend |
-| **Secret** (`sb_secret_...`) | Full access. Bypasses Row Level Security. | **Backend only** |
-| **Publishable** (`sb_publishable_...`) | Limited access, safe in browsers | Not used yet (needed later for login) |
-| **JWKS** | Verifies user login tokens | Not used yet (needed later for auth) |
+| Frontend | React + Vite + TypeScript | Vercel |
+| Backend | Node.js + Express | Render |
+| Database | PostgreSQL | Supabase |
+| Auth | Supabase Auth (JWT) | Supabase |
 
-> Older tutorials call the secret key the **service_role** key and the publishable key the **anon** key. They're the same idea with new names.
-
----
-
-## 2. Run locally
-
-Each folder has a `.env.example`. Copy it to `.env` and fill it in. The examples already point at `localhost`, which is what you want on your own machine.
-
-**Backend**
-```bash
-cd backend
-cp .env.example .env     # then paste in your Supabase URL + secret key
-npm install
-npm run dev              # visit http://localhost:3000/health and expect {"ok":true}
-```
-
-**Frontend** (in a second terminal)
-```bash
-cd frontend
-cp .env.example .env     # VITE_API_URL=http://localhost:3000 is already correct
-npm install
-npm run dev              # visit http://localhost:5173
-```
-
-Add an item in the form. If it shows up in the list and in the Supabase **Table Editor**, everything is connected.
-
----
-
-## 3. Environment variables explained
-
-**What is `.env`, and why isn't it on GitHub?**
-It holds secrets (like your Supabase secret key). The `.gitignore` keeps it out of git, so it **never gets pushed**. `.env.example` is the template you *do* commit, with fake values that show which keys are needed.
-
-**So how do Render and Vercel get the values?**
-You type them into each platform's dashboard (or paste your `.env` contents; both support that). Same keys, but **different values** for deployed vs local:
-
-| Variable | Lives in | Local value | Deployed value |
-|---|---|---|---|
-| `SUPABASE_URL` | backend | your project URL | same |
-| `SUPABASE_SECRET_KEY` | backend | `sb_secret_...` | same |
-| `CORS_ORIGIN` | backend | `http://localhost:5173` | your Vercel URL |
-| `PORT` | backend | `3000` | **don't set it** (Render sets it for you) |
-| `VITE_API_URL` | frontend | `http://localhost:3000` | your Render URL |
-
-**Why does the frontend only need one variable?**
-The frontend only talks to your backend, so it only needs the backend's address. The Supabase keys stay on the server.
-
-**Should I share my `.env` file with others?**
-No. Your secret key gives full access to your database. Everyone makes their own Supabase project and their own `.env`.
-
----
-
-## 4. Deploy
-
-### The chicken-and-egg problem
-
-Vercel needs Render's URL (`VITE_API_URL`), and Render needs Vercel's URL (`CORS_ORIGIN`). You solve it by deploying in this order:
-
-1. **Render first**, with `CORS_ORIGIN` temporarily left as `http://localhost:5173`
-2. **Vercel second**, with `VITE_API_URL` set to the Render URL
-3. **Back to Render**, and change `CORS_ORIGIN` to the Vercel URL
-
-### Step 1: Backend → Render
-
-Render → **New → Web Service** → connect your GitHub repo.
-
-**Does Render deploy a branch or a folder?** Both, as separate settings. Your repo has two apps in it, so you tell Render which folder holds the backend:
-
-| Setting | Value |
-|---|---|
-| Branch | `main` (auto-deploys on every push) |
-| Root Directory | `backend` |
-| Build Command | `npm install` |
-| Start Command | `npm start` |
-| Health Check Path | `/health` |
-
-**Environment variables:** `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `CORS_ORIGIN=http://localhost:5173` (temporary).
-
-**Where's my URL?** At the top of the service page, under its name, e.g. `https://my-api.onrender.com`.
-✅ Check: open `https://my-api.onrender.com/health` and expect `{"ok":true}`.
-
-### Step 2: Frontend → Vercel
-
-Vercel → **Add New → Project** → import the same repo.
-
-| Setting | Value |
-|---|---|
-| Framework Preset | Vite (auto-detected) |
-| Root Directory | `frontend` |
-| Build Command | `npm run build` (default) |
-| Output Directory | `dist` (default) |
-
-**Environment variable:** `VITE_API_URL` = your Render URL (no trailing `/`, no `/api`).
-
-**Where's my URL?** In the project dashboard under **Domains**, e.g. `https://my-app.vercel.app`. Use this short one, not the long URLs with random characters (those are per-deploy previews).
-
-⚠️ The site loads, but the list shows an error. **This is expected.** Open the browser console and you'll see a **CORS error**. The backend doesn't trust your Vercel URL yet.
-
-### Step 3: Connect them
-
-Back in Render → your service → **Environment** → set:
+## Architecture
 
 ```
-CORS_ORIGIN=https://my-app.vercel.app
+Browser (React, Vercel)
+   │  logs in with Supabase Auth → receives a JWT
+   │  calls the REST API with  Authorization: Bearer <token>
+   ▼
+Express API (Render)
+   │  verifies the JWT (jose + Supabase JWKS), validates input,
+   │  queries the database AS the logged-in user
+   ▼
+Supabase Postgres
+      Row Level Security enforces who can read/change which rows
 ```
 
-Copy it exactly: `https://`, no trailing `/`. Save, and Render redeploys. Refresh your Vercel site and it should work.
+The frontend only uses Supabase to log in. All data goes through the Express API.
 
-To allow both local and deployed frontends, separate them with a comma:
-`CORS_ORIGIN=http://localhost:5173,https://my-app.vercel.app`
+## Data model
 
----
+- **profiles** (`id` → auth user, `full_name`, `role`: volunteer | organizer). Created automatically by a trigger on sign-up.
+- **opportunities** (`organizer_id` → profiles, title, description, category, location, `starts_at`, `ends_at`, `capacity`, `spots_taken`)
+- **registrations** (`opportunity_id` → opportunities, `user_id` → profiles), with `unique (opportunity_id, user_id)` to block duplicate sign-ups
+
+SQL: `backend/schema-volunteer.sql` (tables), `backend/schema-security.sql` (RLS, functions, trigger).
+
+## Security and correctness
+
+- **Row Level Security:** anyone can read opportunities, only organizers can create them, only the creator can delete one, and registrations are visible only to the volunteer and the event's organizer.
+- **Race-safe capacity:** registering runs in a Postgres function that locks the opportunity row (`SELECT ... FOR UPDATE`), checks capacity, and inserts in one step, so two people can't take the last spot at the same time.
+- **Server-side validation:** required fields, end time after start time, start time in the future, capacity 1–1000.
+- The Supabase secret key lives only on the backend and is never sent to the browser.
 
 ## API
 
-| Method | Route          | Body                | Returns        |
-|--------|----------------|---------------------|----------------|
-| GET    | `/health`      | none                | `{ ok: true }` |
-| GET    | `/api/example` | none                | array of rows  |
-| POST   | `/api/example` | `{ "title": "..." }` | created row    |
+| Method | Route | Auth | Description |
+|---|---|---|---|
+| GET | `/api/opportunities?category=&search=` | – | Upcoming opportunities |
+| GET | `/api/opportunities/:id` | – | One opportunity |
+| POST | `/api/opportunities` | organizer | Create (201) |
+| DELETE | `/api/opportunities/:id` | its organizer | Delete (204) |
+| GET | `/api/opportunities/:id/registrations` | its organizer | Attendee list |
+| POST | `/api/opportunities/:id/register` | user | Register (201, or 409 if full or already registered) |
+| DELETE | `/api/opportunities/:id/register` | user | Cancel (204) |
+| GET | `/api/me` | user | My profile |
+| GET | `/api/me/registrations` | user | My registrations |
+| GET | `/api/me/opportunities` | user | Opportunities I organize |
 
-## Gotchas
+## Run locally
 
-- **Never put the secret key in the frontend.** Every `VITE_` variable gets bundled into the browser code, where anyone can read it.
-- **Never commit `.env`.** Only commit `.env.example`.
-- **Render's free tier sleeps** after 15 minutes idle, so the first request then takes about 30 seconds.
-- **Changed `VITE_API_URL`?** Redeploy Vercel. Vite puts it into the build.
-- **Vercel build failed?** `npm run build` type-checks first, so fix any TypeScript errors shown in the build log.
-- **Seeing a CORS error?** `CORS_ORIGIN` on Render must exactly match your frontend URL.
+1. Create a Supabase project. In the SQL Editor, run `backend/schema-volunteer.sql`, then `backend/schema-security.sql`.
+2. Backend:
+   ```
+   cd backend
+   cp .env.example .env   # fill in SUPABASE_URL, SUPABASE_SECRET_KEY, SUPABASE_PUBLISHABLE_KEY, SUPABASE_JWKS_URL, CORS_ORIGIN
+   npm install
+   npm run dev            # http://localhost:3000/health
+   ```
+3. Frontend (second terminal):
+   ```
+   cd frontend
+   cp .env.example .env   # VITE_API_URL, VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY
+   npm install
+   npm run dev            # http://localhost:5173
+   ```
+
+## Possible next steps
+- Editing opportunities
+- Email reminders before an event
+- Organizer-confirmed attendance and volunteer hour totals
